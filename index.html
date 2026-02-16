@@ -49,6 +49,9 @@
         .bottom-nav { padding: 40px 0; background: #111; display: flex; justify-content: center; align-items: center; gap: 15px; border-top: 1px solid #222; }
 
         #viewer-container::-webkit-scrollbar { display: none; }
+        
+        /* HD 버튼 스타일 */
+        .btn-hd-active { background-color: #fbbf24 !important; color: #000 !important; font-weight: 800; border: 2px solid #fff; }
     </style>
 </head>
 <body>
@@ -61,7 +64,8 @@
                 <option value="kim">김군의 일기</option>
                 <option value="yeon">바람의나라 연 일기</option>
             </select>
-            <button onclick="toggleFullScreen()" class="bg-blue-700 px-4 py-1 rounded text-xs font-bold">전체화면</button>
+            <button id="btn-hd" onclick="toggleHD()" class="bg-gray-700 px-3 py-1 rounded text-xs font-bold transition-all">HD</button>
+            <button onclick="toggleFullScreen()" class="bg-blue-700 px-3 py-1 rounded text-xs font-bold">전체화면</button>
         </div>
         
         <div class="flex justify-between items-center">
@@ -96,27 +100,58 @@
         let currentCat = 'jorang';
         let currentEp = 1;
         let db = {};
+        let dbHD = {}; 
+        let isHD = false;
         let currentMode = 'width';
         let startX = 0;
 
         async function init() {
             try {
-                const [jorang, extra, kim, yeon] = await Promise.all([
+                const [jorang, extra, kim, yeon, hdData] = await Promise.all([
                     fetch('./file_list.json').then(res => res.json()),
                     fetch('./file_list_외전.json').then(res => res.json()),
                     fetch('./file_list_kim.json').then(res => res.json()),
-                    fetch('./file_list_바람_연.json').then(res => res.json())
+                    fetch('./file_list_바람_연.json').then(res => res.json()),
+                    fetch('./file_list_hd.json').then(res => res.json()) 
                 ]);
                 db = { jorang, extra, kim, yeon };
+                dbHD = hdData;
                 render();
-            } catch (e) { alert('데이터 로딩 실패!'); }
+            } catch (e) { console.error(e); }
         }
 
-        // 이미지 경로 리스트 생성기
+        function toggleHD() {
+            if (currentCat === 'jorang' || currentCat === 'extra') {
+                isHD = !isHD;
+                document.getElementById('btn-hd').className = isHD ? "btn-hd-active px-3 py-1 rounded text-xs font-bold transition-all" : "bg-gray-700 px-3 py-1 rounded text-xs font-bold transition-all";
+                render();
+            } else {
+                alert('이 시리즈는 HD를 지원하지 않습니다.');
+            }
+        }
+
         function getPaths(cat, ep) {
+            // ✅ HD 모드일 때 개별 폴더 매핑 로직
+            if (isHD) {
+                if (cat === 'jorang') {
+                    let folder = "";
+                    if (ep <= 50) folder = "조랑이의 바람일기 1~50(up)";
+                    else if (ep <= 100) folder = "조랑이의 바람일기 51~100(up)";
+                    else if (ep <= 150) folder = "조랑이의 바람일기 101~150(up)";
+                    else folder = "조랑이의 바람일기 151~219(up)";
+                    
+                    const fileName = dbHD.jorang_hd[ep - 1];
+                    return fileName ? [`./${folder}/${fileName}`] : [];
+                } else if (cat === 'extra') {
+                    const folder = "조랑이의 바람일기 외전(up)";
+                    const fileName = dbHD.extra_hd[ep - 1];
+                    return fileName ? [`./${folder}/${fileName}`] : [];
+                }
+            }
+
+            // 원본 데이터 경로 로직 (유지)
             const data = db[cat];
             if (!data) return [];
-            
             if (cat === 'kim') {
                 const pages = data[ep] || [];
                 return pages.map(name => `./김군의 일기/${name}`);
@@ -144,18 +179,14 @@
             document.getElementById('jump-input-top').value = currentEp;
             document.getElementById('jump-input-bottom').value = currentEp;
             container.scrollTo(0, 0);
-
-            // 현재 렌더링 직후 다음 화 미리 로드
             preloadNext();
         }
 
-        // 💡 핵심 기능: 다음 화 미리 불러오기
         function preloadNext() {
             const max = currentCat === 'kim' ? Object.keys(db.kim).length : db[currentCat].length;
             if (currentEp < max) {
                 const nextPaths = getPaths(currentCat, currentEp + 1);
                 const preloader = document.getElementById('preloader');
-                // 기존 프리로드 제거 후 새로 추가
                 preloader.innerHTML = '';
                 nextPaths.forEach(path => {
                     const img = new Image();
@@ -170,16 +201,13 @@
             const endX = e.changedTouches[0].clientX;
             const diffX = startX - endX;
             const container = document.getElementById('viewer-container');
-
-            if (currentMode === 'height') {
-                const isAtEnd = container.scrollLeft + container.offsetWidth >= container.scrollWidth - 10;
-                const isAtStart = container.scrollLeft <= 10;
-                if (Math.abs(diffX) > 100) {
+            if (Math.abs(diffX) > 100) {
+                if (currentMode === 'height') {
+                    const isAtEnd = container.scrollLeft + container.offsetWidth >= container.scrollWidth - 10;
+                    const isAtStart = container.scrollLeft <= 10;
                     if (diffX > 0 && isAtEnd) changeEp(1);
                     else if (diffX < 0 && isAtStart) changeEp(-1);
-                }
-            } else {
-                if (Math.abs(diffX) > 100) {
+                } else {
                     if (diffX > 0) changeEp(1);
                     else if (diffX < 0) changeEp(-1);
                 }
@@ -222,6 +250,10 @@
         document.getElementById('cat-select').onchange = (e) => {
             currentCat = e.target.value;
             currentEp = 1;
+            if (currentCat !== 'jorang' && currentCat !== 'extra') {
+                isHD = false;
+                document.getElementById('btn-hd').className = "bg-gray-700 px-3 py-1 rounded text-xs font-bold transition-all";
+            }
             render();
         };
 

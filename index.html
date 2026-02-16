@@ -9,7 +9,6 @@
         body { background-color: #000; color: #fff; margin: 0; overflow-x: hidden; font-family: sans-serif; }
         header { height: 110px; background: #1a1a1a; z-index: 40; position: relative; border-bottom: 1px solid #333; }
 
-        /* 메인 뷰어 */
         #viewer-container {
             width: 100vw;
             height: calc(100vh - 110px);
@@ -20,7 +19,7 @@
         :fullscreen #viewer-container { height: 100vh; }
         :fullscreen header { display: none; }
 
-        .comic-img { display: block; flex-shrink: 0; object-fit: contain; }
+        .comic-img { display: block; flex-shrink: 0; object-fit: contain; background: #000; }
 
         /* [1] 가로 맞춤 (웹툰) */
         .mode-width { overflow-y: auto !important; display: block !important; scroll-behavior: smooth; }
@@ -46,10 +45,7 @@
         .mode-original { overflow: auto !important; display: block !important; }
         .mode-original .comic-img { width: auto; max-width: 100vw; height: auto; margin: 0 auto; }
 
-        /* 공통 버튼 스타일 */
         .nav-input { background: #333; color: #fbbf24; border: 1px solid #444; width: 45px; text-align: center; border-radius: 4px; font-weight: bold; outline: none; }
-        
-        /* 하단 네비게이션바 (가로 맞춤/기본 모드에서 만화 하단에 표시) */
         .bottom-nav { padding: 40px 0; background: #111; display: flex; justify-content: center; align-items: center; gap: 15px; border-top: 1px solid #222; }
 
         #viewer-container::-webkit-scrollbar { display: none; }
@@ -94,6 +90,8 @@
         </div>
     </main>
 
+    <div id="preloader" style="display:none;"></div>
+
     <script>
         let currentCat = 'jorang';
         let currentEp = 1;
@@ -114,55 +112,73 @@
             } catch (e) { alert('데이터 로딩 실패!'); }
         }
 
+        // 이미지 경로 리스트 생성기
+        function getPaths(cat, ep) {
+            const data = db[cat];
+            if (!data) return [];
+            
+            if (cat === 'kim') {
+                const pages = data[ep] || [];
+                return pages.map(name => `./김군의 일기/${name}`);
+            } else if (cat === 'jorang') {
+                return data[ep - 1] ? [`./${data[ep - 1]}`] : [];
+            } else {
+                const folder = cat === 'extra' ? '조랑이의 바람일기 외전' : '바람의나라 연 일기';
+                return data[ep - 1] ? [`./${folder}/${data[ep - 1]}`] : [];
+            }
+        }
+
         function render() {
             const inner = document.getElementById('viewer-inner');
             const container = document.getElementById('viewer-container');
             inner.innerHTML = '';
-            const data = db[currentCat];
-
-            let imagePaths = [];
-            if (currentCat === 'kim') {
-                const pages = data[currentEp] || [];
-                imagePaths = pages.map(name => `./김군의 일기/${name}`);
-            } else if (currentCat === 'jorang') {
-                imagePaths = [`./${data[currentEp - 1]}`];
-            } else {
-                const folder = currentCat === 'extra' ? '조랑이의 바람일기 외전' : '바람의나라 연 일기';
-                imagePaths = [`./${folder}/${data[currentEp - 1]}`];
-            }
-
-            imagePaths.forEach(path => {
+            
+            const paths = getPaths(currentCat, currentEp);
+            paths.forEach(path => {
                 const img = document.createElement('img');
                 img.src = path;
                 img.className = "comic-img";
                 inner.appendChild(img);
             });
 
-            // 입력창 업데이트
             document.getElementById('jump-input-top').value = currentEp;
             document.getElementById('jump-input-bottom').value = currentEp;
-            
             container.scrollTo(0, 0);
+
+            // 현재 렌더링 직후 다음 화 미리 로드
+            preloadNext();
         }
 
-        // 스와이프 제어 (화면 좌우 스와이프로 화 전환)
+        // 💡 핵심 기능: 다음 화 미리 불러오기
+        function preloadNext() {
+            const max = currentCat === 'kim' ? Object.keys(db.kim).length : db[currentCat].length;
+            if (currentEp < max) {
+                const nextPaths = getPaths(currentCat, currentEp + 1);
+                const preloader = document.getElementById('preloader');
+                // 기존 프리로드 제거 후 새로 추가
+                preloader.innerHTML = '';
+                nextPaths.forEach(path => {
+                    const img = new Image();
+                    img.src = path;
+                    preloader.appendChild(img);
+                });
+            }
+        }
+
         document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; });
         document.addEventListener('touchend', e => {
             const endX = e.changedTouches[0].clientX;
             const diffX = startX - endX;
             const container = document.getElementById('viewer-container');
 
-            // [조건] 세로 맞춤 모드일 때는 이미지 스냅이 끝(또는 처음)일 때만 화 전환 작동
             if (currentMode === 'height') {
                 const isAtEnd = container.scrollLeft + container.offsetWidth >= container.scrollWidth - 10;
                 const isAtStart = container.scrollLeft <= 10;
-                
                 if (Math.abs(diffX) > 100) {
                     if (diffX > 0 && isAtEnd) changeEp(1);
                     else if (diffX < 0 && isAtStart) changeEp(-1);
                 }
             } else {
-                // 가로 맞춤/기본 모드에서는 언제든 좌우 스와이프로 화 전환
                 if (Math.abs(diffX) > 100) {
                     if (diffX > 0) changeEp(1);
                     else if (diffX < 0) changeEp(-1);
@@ -181,8 +197,7 @@
 
         function setMode(mode) {
             currentMode = mode;
-            const container = document.getElementById('viewer-container');
-            container.className = `mode-${mode}`;
+            document.getElementById('viewer-container').className = `mode-${mode}`;
             document.querySelectorAll('#mode-buttons button').forEach(btn => {
                 btn.className = "bg-gray-700 px-2 py-1 rounded text-[10px] text-white";
             });

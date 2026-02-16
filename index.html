@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>바람의나라 추억 만화관</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f3f4f6; }
+        .comic-img { width: 100%; height: auto; display: block; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body class="pb-20">
+    <header class="bg-white shadow sticky top-0 z-20 p-4">
+        <div class="max-w-2xl mx-auto space-y-3">
+            <select id="cat-select" class="w-full p-2 border rounded font-bold text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="jorang">조랑이의 바람일기 (본편 1~219)</option>
+                <option value="extra">조랑이의 바람일기 (외전)</option>
+                <option value="kim">김군의 일기</option>
+                <option value="yeon">바람의나라 연 일기</option>
+            </select>
+            <div class="flex justify-between items-center">
+                <button onclick="changeEp(-1)" class="px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">이전</button>
+                <div class="text-center">
+                    <span id="ep-info" class="font-bold text-xl text-blue-800">로딩 중...</span>
+                    <p id="ep-title" class="text-xs text-gray-500 truncate max-w-[150px]"></p>
+                </div>
+                <button onclick="changeEp(1)" class="px-5 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition">다음</button>
+            </div>
+        </div>
+    </header>
+
+    <main id="viewer" class="max-w-2xl mx-auto mt-4 px-2 space-y-1 bg-white shadow-sm min-h-screen">
+        </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex justify-center gap-4 shadow-lg">
+        <input type="number" id="jump-input" placeholder="화 번호" class="border w-20 text-center rounded-l-md px-2">
+        <button onclick="jumpToEp()" class="bg-gray-800 text-white px-4 py-1 rounded-r-md">이동</button>
+    </nav>
+
+    <script>
+        let currentCat = 'jorang';
+        let currentEp = 1;
+        let db = { jorang: [], extra: [], kim: {}, yeon: [] };
+
+        // 1. JSON 데이터 로드
+        async function init() {
+            try {
+                const [jorang, extra, kim, yeon] = await Promise.all([
+                    fetch('./file_list.json').then(res => res.json()),
+                    fetch('./file_list_외전.json').then(res => res.json()),
+                    fetch('./file_list_kim.json').then(res => res.json()),
+                    fetch('./file_list_바람_연.json').then(res => res.json())
+                ]);
+                db = { jorang, extra, kim, yeon };
+                render();
+            } catch (e) {
+                console.error(e);
+                alert('파일을 불러오지 못했습니다. 파일명과 경로를 확인하세요.');
+            }
+        }
+
+        // 2. 만화 출력 함수
+        function render() {
+            const viewer = document.getElementById('viewer');
+            viewer.innerHTML = '';
+            const data = db[currentCat];
+            let displayTitle = "";
+
+            if (currentCat === 'kim') {
+                // 김군의 일기: 여러 장의 이미지
+                const pages = data[currentEp];
+                if (pages) {
+                    pages.forEach(fileName => {
+                        const img = document.createElement('img');
+                        img.src = `./김군의 일기/${fileName}`; 
+                        img.className = "comic-img";
+                        img.loading = "lazy";
+                        viewer.appendChild(img);
+                    });
+                }
+                displayTitle = `김군의 일기 #${currentEp}`;
+            } else if (currentCat === 'jorang') {
+                // 조랑이 본편: JSON에 폴더 경로가 이미 포함됨
+                const fullPath = data[currentEp - 1];
+                const img = document.createElement('img');
+                img.src = `./${fullPath}`;
+                img.className = "comic-img shadow-lg";
+                viewer.appendChild(img);
+                displayTitle = fullPath.split('/').pop(); // 파일명만 추출
+            } else {
+                // 외전 및 바람 연: 단일 파일 리스트
+                const fileName = data[currentEp - 1];
+                const folder = currentCat === 'extra' ? '조랑이의 바람일기 외전' : '바람의나라 연 일기';
+                const img = document.createElement('img');
+                img.src = `./${folder}/${fileName}`;
+                img.className = "comic-img shadow-lg";
+                viewer.appendChild(img);
+                displayTitle = fileName;
+            }
+
+            document.getElementById('ep-info').innerText = `${currentEp}화`;
+            document.getElementById('ep-title').innerText = displayTitle;
+            window.scrollTo(0, 0);
+        }
+
+        // 3. 제어 함수
+        function changeEp(delta) {
+            const max = currentCat === 'kim' ? Object.keys(db.kim).length : db[currentCat].length;
+            const next = currentEp + delta;
+            if (next >= 1 && next <= max) {
+                currentEp = next;
+                render();
+            }
+        }
+
+        function jumpToEp() {
+            const val = parseInt(document.getElementById('jump-input').value);
+            const max = currentCat === 'kim' ? Object.keys(db.kim).length : db[currentCat].length;
+            if (val >= 1 && val <= max) {
+                currentEp = val;
+                render();
+            } else {
+                alert(`1화부터 ${max}화 사이의 숫자를 입력하세요.`);
+            }
+        }
+
+        document.getElementById('cat-select').onchange = (e) => {
+            currentCat = e.target.value;
+            currentEp = 1;
+            render();
+        };
+
+        init();
+    </script>
+</body>
+</html>

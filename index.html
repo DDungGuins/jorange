@@ -121,11 +121,11 @@
     <div id="preloader" style="display:none;"></div>
 
     <script>
-        let currentCat = 'jorang';
-        let currentEp = 1;
+        let currentCat = localStorage.getItem('cat') || 'jorang';
+        let currentEp = parseInt(localStorage.getItem('ep')) || 1;
         let db = {};
         let dbHD = {}; 
-        let isHD = false;
+        let isHD = localStorage.getItem('hd') === 'true';
         let currentMode = 'width';
         let startX = 0;
 
@@ -140,6 +140,8 @@
                 ]);
                 db = { jorang, extra, kim, yeon };
                 dbHD = hdData;
+                document.getElementById('cat-select').value = currentCat;
+                if (isHD) document.getElementById('btn-hd').className = "btn-hd-active px-3 py-1 rounded text-xs font-bold transition-all";
                 buildDropdown();
                 render();
             } catch (e) { console.error(e); }
@@ -148,6 +150,7 @@
         function toggleHD() {
             if (currentCat === 'jorang' || currentCat === 'extra') {
                 isHD = !isHD;
+                localStorage.setItem('hd', isHD);
                 document.getElementById('btn-hd').className = isHD ? "btn-hd-active px-3 py-1 rounded text-xs font-bold transition-all" : "bg-gray-700 px-3 py-1 rounded text-xs font-bold transition-all";
                 render();
             } else {
@@ -203,6 +206,8 @@
 
             document.getElementById('jump-input-top').value = currentEp;
             document.getElementById('jump-input-bottom').value = currentEp;
+            localStorage.setItem('cat', currentCat);
+            localStorage.setItem('ep', currentEp);
             container.scrollTo(0, 0);
             preloadNext();
         }

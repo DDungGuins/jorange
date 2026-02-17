@@ -1,0 +1,20 @@
+# 작업용 파일
+test.ipynb
+jorang.py
+report.html
+
+# ML 모델 / 실행파일
+weights/
+waifu2x-ncnn-vulkan-20250915-windows/
+
+# 원본 압축파일
+조랑이만화.zip
+
+# 업스케일 작업폴더
+조랑이만화_업스케일/
+
+# 흘러들어간 업스케일 파일
+up_*
+
+# Claude 메모리
+.claude/

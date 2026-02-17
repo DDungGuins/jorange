@@ -126,7 +126,7 @@
         let db = {};
         let dbHD = {}; 
         let isHD = localStorage.getItem('hd') === 'true';
-        let currentMode = 'width';
+        let currentMode = localStorage.getItem('mode') || 'width';
         let startX = 0;
 
         async function init() {
@@ -142,6 +142,9 @@
                 dbHD = hdData;
                 document.getElementById('cat-select').value = currentCat;
                 if (isHD) document.getElementById('btn-hd').className = "btn-hd-active px-3 py-1 rounded text-xs font-bold transition-all";
+                document.getElementById('viewer-container').className = `mode-${currentMode}`;
+                document.querySelectorAll('#mode-buttons button').forEach(btn => btn.className = "bg-gray-700 px-2 py-1 rounded text-[10px] text-white");
+                document.getElementById(`btn-${currentMode}`).className = "bg-blue-600 px-2 py-1 rounded text-[10px] text-white";
                 buildDropdown();
                 render();
             } catch (e) { console.error(e); }
@@ -289,6 +292,7 @@
 
         function setMode(mode) {
             currentMode = mode;
+            localStorage.setItem('mode', mode);
             document.getElementById('viewer-container').className = `mode-${mode}`;
             document.querySelectorAll('#mode-buttons button').forEach(btn => {
                 btn.className = "bg-gray-700 px-2 py-1 rounded text-[10px] text-white";

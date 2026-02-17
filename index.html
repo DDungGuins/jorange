@@ -45,7 +45,9 @@
         .mode-original { overflow: auto !important; display: block !important; }
         .mode-original .comic-img { width: auto; max-width: 100vw; height: auto; margin: 0 auto; }
 
-        .nav-input { background: #333; color: #fbbf24; border: 1px solid #444; width: 45px; text-align: center; border-radius: 4px; font-weight: bold; outline: none; }
+        .ep-select { background: #333; color: #fbbf24; border: 1px solid #444; border-radius: 4px; font-weight: bold; outline: none; cursor: pointer; }
+        .ep-select-top { max-width: 160px; font-size: 11px; padding: 2px 4px; }
+        .ep-select-bottom { max-width: 320px; font-size: 15px; padding: 4px 8px; }
         .bottom-nav { padding: 40px 0; background: #111; display: flex; justify-content: center; align-items: center; gap: 15px; border-top: 1px solid #222; }
 
         #viewer-container::-webkit-scrollbar { display: none; }
@@ -98,7 +100,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <button onclick="changeEp(-1)" class="text-2xl px-1">◀</button>
-                <input type="number" id="jump-input-top" class="nav-input" value="1" onchange="jumpToEp(this.value)">
+                <select id="jump-input-top" class="ep-select ep-select-top" onchange="jumpToEp(this.value)"></select>
                 <button onclick="changeEp(1)" class="text-2xl px-1">▶</button>
             </div>
         </div>
@@ -111,10 +113,7 @@
         <div id="viewer-inner" style="display: contents;"></div>
         <div id="bottom-controls" class="bottom-nav">
             <button onclick="changeEp(-1)" class="text-3xl px-4">◀</button>
-            <div class="flex items-center gap-1">
-                <input type="number" id="jump-input-bottom" class="nav-input text-xl w-16 h-10" value="1" onchange="jumpToEp(this.value)">
-                <span class="text-yellow-500 font-bold">화</span>
-            </div>
+            <select id="jump-input-bottom" class="ep-select ep-select-bottom" onchange="jumpToEp(this.value)"></select>
             <button onclick="changeEp(1)" class="text-3xl px-4">▶</button>
         </div>
     </main>
@@ -141,6 +140,7 @@
                 ]);
                 db = { jorang, extra, kim, yeon };
                 dbHD = hdData;
+                buildDropdown();
                 render();
             } catch (e) { console.error(e); }
         }
@@ -221,9 +221,36 @@
             }
         }
 
+        function getEpTitle(cat, ep) {
+            if (cat === 'jorang') {
+                const filename = (db.jorang[ep - 1] || '').split('/').pop();
+                const m = filename.match(/바람일기 (.+)\.jpg$/i);
+                return m ? m[1] : `${ep}화`;
+            } else if (cat === 'extra') {
+                const filename = db.extra[ep - 1] || '';
+                const m = filename.match(/외전 (.+)\.jpg$/i);
+                return m ? m[1] : `${ep}화`;
+            } else if (cat === 'yeon') {
+                const filename = db.yeon[ep - 1] || '';
+                const m = filename.match(/일기 (.+)\.jpg$/i);
+                return m ? m[1] : `${ep}화`;
+            }
+            return `${ep}화`;
+        }
+
+        function buildDropdown() {
+            const max = currentCat === 'kim' ? Object.keys(db.kim).length : db[currentCat].length;
+            const opts = Array.from({length: max}, (_, i) => {
+                const ep = i + 1;
+                return `<option value="${ep}">${getEpTitle(currentCat, ep)}</option>`;
+            }).join('');
+            document.getElementById('jump-input-top').innerHTML = opts;
+            document.getElementById('jump-input-bottom').innerHTML = opts;
+        }
+
         // 키보드 방향키
         document.addEventListener('keydown', e => {
-            if (document.activeElement.tagName === 'INPUT') return;
+            if (['INPUT', 'SELECT'].includes(document.activeElement.tagName)) return;
             if (e.key === 'ArrowLeft') changeEp(-1);
             else if (e.key === 'ArrowRight') changeEp(1);
         });
@@ -286,6 +313,7 @@
                 isHD = false;
                 document.getElementById('btn-hd').className = "bg-gray-700 px-3 py-1 rounded text-xs font-bold transition-all";
             }
+            buildDropdown();
             render();
         };
 
